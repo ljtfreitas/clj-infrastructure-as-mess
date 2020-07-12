@@ -1,5 +1,7 @@
 (ns infrastructure-as-mess.some-ideas
-  (:require [com.stuartsierra.dependency :as dep]))
+  (:require [cats.core :as m]
+            [cats.monad.exception :as ex]
+            [com.stuartsierra.dependency :as dep]))
 
 (defrecord Raw [value])
 (defrecord ResourceRef [id])
@@ -15,6 +17,20 @@
 (defn resource-id
   [ns n]
   (keyword ns (name n)))
+
+(defmacro ingredients
+  [& is]
+  `{:ingredients (flatten [~@is])})
+
+(defmacro inputs
+  [& keyvals]
+  `{:inputs (apply array-map [~@keyvals])})
+
+(defmacro recipe
+  [id description & args]
+  `(merge {:id          (keyword "recipe" (name ~id))
+           :description ~description}
+          (into {} [~@args])))
 
 (defn bucket
   [name description properties]
@@ -65,7 +81,6 @@
   (bucket-policy :other-policy (reference :aws.s3.bucket/a-bucket) {}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ; build a cloudformation?
 (def stack
   (cloudformation-stack :mystack "a simple stack"
@@ -75,7 +90,39 @@
      (outputs
       (output :bucket-name (reference :aws.s3.bucket/a-bucket))))))
 
+(def a-recipe
+  (recipe :a-recipe "This recipe creates a lot of cool stuff"
+    (inputs
+      :a-value (constantly :some-value)
+      :other-value (constantly :some-other-value))
+    (ingredients stack)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn resolve-input!
+  [components acc [k fn]]
+  (m/fmap (partial merge acc)
+          (ex/try-on
+            {k (apply fn components)})))
+
+(defn resolve-inputs!
+  [inputs components]
+  (m/foldm ex/context
+           (partial resolve-input! components)
+           {}
+           inputs))
+
+(defn resolve-ingredients
+  [ingredients inputs]
+  (m/return ingredients))
+
+; prepare deploy first?
+(defn deploy
+  [recipe components]
+  (m/mlet [inputs    (resolve-inputs! (:inputs recipe) components)
+           resources (resolve-ingredients (:ingredients recipe) inputs)]
+          {:inputs    inputs
+           :resources resources}))
+
 ; send to aws?
 (defn aws-deploy
   [stack]
@@ -101,4 +148,4 @@
                (filter reference?)
                (map :id))))
 
-(reduce reduce-resources (dep/graph) [a-bucket a-bucket-policy other-bucket-policy])
+#_(reduce reduce-resources (dep/graph) [a-bucket a-bucket-policy other-bucket-policy])
