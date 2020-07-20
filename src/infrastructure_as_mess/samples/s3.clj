@@ -10,7 +10,7 @@
   (partial aws/cloud-formation-stack (string/join "-" [(name environment) "s3-bucket"])
                                      (str "S3 Buckets on environment " (name environment))))
 
-(defn -main [environment bucket-name]
+(defn -main [& args]
   (cook!
     (recipe :create-s3-bucket "Create a new S3 bucket in some environment."
             (dependencies
