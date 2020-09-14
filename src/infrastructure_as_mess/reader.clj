@@ -1,4 +1,4 @@
-(ns infrastructure-as-mess.meta.reader
+(ns infrastructure-as-mess.reader
   (:require [clojure.tools.cli :as cli]
             [schema.coerce :as coerce]))
 

@@ -1,4 +1,4 @@
-(ns infrastructure-as-mess.meta.main
+(ns infrastructure-as-mess.main
   (:require [infrastructure-as-mess.meta.reader :as r]))
 
 (defn apply-interceptors!
